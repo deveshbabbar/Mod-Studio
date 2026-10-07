@@ -1,0 +1,5 @@
+{
+  "name": "mod-studio",
+  "owner": { "name": "Devesh Babbar" },
+  "plugins": [{ "name": "mod-studio", "source": "./" }]
+}

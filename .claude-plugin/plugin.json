@@ -1,0 +1,30 @@
+{
+  "name": "mod-studio",
+  "version": "0.1.0",
+  "description": "See every mod you've made, watch live build progress, and get Claude to suggest, build and improve mods.",
+  "author": {
+    "name": "Devesh Babbar"
+  },
+  "license": "MIT",
+  "keywords": [
+    "mods",
+    "plugins",
+    "progress",
+    "dashboard"
+  ],
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "placement": {
+      "type": "string",
+      "title": "Where to show build progress",
+      "description": "band = above the prompt, status = status line, chat = a live card in the chat when you run /mod-status, all = everywhere",
+      "options": [
+        "band",
+        "status",
+        "chat",
+        "all"
+      ],
+      "default": "all"
+    }
+  }
+}
