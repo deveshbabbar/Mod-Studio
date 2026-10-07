@@ -1,6 +1,6 @@
 {
   "name": "mod-studio",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "See every mod you've made, watch live build progress, and get Claude to suggest, build and improve mods.",
   "author": {
     "name": "Devesh Babbar"

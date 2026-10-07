@@ -5,7 +5,7 @@ A Claude Code mod for building mods. See every mod you've made, watch Claude bui
 ## Features
 
 - **All your mods in one pane.** `/mods` opens Mod Studio. It lists every mod in `~/.claude/dev-mods` with a progress bar, what's left to do, and an **Improve** button.
-- **Live build progress.** While Claude builds a mod you see something like:
+- **Live build progress.** While Claude builds any mod, even one you just describe in plain words, you see something like this in the chat:
   `🔧 toh ████████░░░░ 60% · writing hooks module   [Studio] [Hide]`
   Progress comes from two places:
   1. Claude reports each step with the `report_progress` tool.
@@ -39,6 +39,24 @@ In a Claude Code terminal session:
 ```
 
 Answer `y` to add the marketplace, then press Enter to install for your user.
+
+In VS Code or the desktop app, where `/plugin` isn't available, run these in a terminal instead:
+
+```
+claude plugin marketplace add deveshbabbar/Mod-Studio
+claude plugin install mod-studio@mod-studio
+```
+
+Then start a new conversation.
+
+To update to a newer version:
+
+```
+claude plugin marketplace update mod-studio
+claude plugin update mod-studio@mod-studio
+```
+
+**VS Code note:** the VS Code panel shows the progress in the chat, as each `report_progress` line and through `/mods` and `/mod-status`. The band above the prompt, the status line and the Mod Studio pane show in the terminal.
 
 ## Develop
 

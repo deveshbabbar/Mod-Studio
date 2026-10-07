@@ -32,6 +32,9 @@ export const bar = (percent: number, width = 12) => {
   return '█'.repeat(filled) + '░'.repeat(width - filled)
 }
 
+export const cleanName = (name: string) =>
+  name.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40)
+
 export const modFromPath = (path: string) => {
   const match = /\/dev-mods\/[^/]+\/([^/]+)\//.exec(path)
   return match ? match[1] : undefined
@@ -189,19 +192,9 @@ export const register: Register = (on, options) => {
   on('session.start', async ($, e, next) => {
     await $.command.register({ name: 'mods', description: 'Open Mod Studio: all your mods and their progress' })
     await $.command.register({
-      name: 'mod-new',
-      description: 'Have Claude build a new mod and watch its progress live',
-      argumentHint: '<name> <what it should do>',
-    })
-    await $.command.register({
       name: 'mod-suggest',
       description: 'Get mod ideas you could build next',
       argumentHint: '[topic]',
-    })
-    await $.command.register({
-      name: 'mod-improve',
-      description: 'Have Claude suggest and add features to one of your mods',
-      argumentHint: '<name>',
     })
     await $.command.register({
       name: 'mod-status',
@@ -231,9 +224,25 @@ export const register: Register = (on, options) => {
     return next(e)
   })
 
+  // Any mod Claude builds reports its progress, not only ones started with /mod-new.
+  on('prompt.compose', async ($, e, next) => {
+    const composed = await next(e)
+    return {
+      ...composed,
+      sections: [
+        ...composed.sections,
+        {
+          id: 'mod-studio:progress',
+          scope: 'session' as const,
+          text: `Whenever you build or change a Claude Code mod (a plugin of function hooks), call the ${TOOL} tool with { mod, percent, step } before you start and after each step (planning 10, manifest 25, hooks module 60, tests 80, validated 95, done 100), so the person can watch its progress.`,
+        },
+      ],
+    }
+  })
+
   on('tool.call', { tool: TOOL }, async ($, e) => {
     const input = e as unknown as { mod?: string; percent?: number; step?: string }
-    const name = String(input.mod ?? '').trim()
+    const name = cleanName(String(input.mod ?? ''))
     if (!name) return { deny: 'Give the mod name in `mod`.' }
     const percent = Math.round(Math.max(0, Math.min(100, Number(input.percent) || 0)))
     const step = String(input.step ?? '').slice(0, 120)
@@ -242,7 +251,7 @@ export const register: Register = (on, options) => {
     await refreshStatus($)
     if (percent >= 100) $.ui.toast(`✅ Mod "${name}" is done`)
 
-    return { result: `Progress for ${name} recorded: ${percent}% (${step}).` }
+    return { result: `🔧 ${name} ${bar(percent)} ${percent}% · ${step}` }
   })
 
   // Claude writing into a mod folder counts as progress on that mod.
@@ -266,16 +275,15 @@ export const register: Register = (on, options) => {
 
   on('command.run', { command: 'mods' }, async $ => {
     await rescan($)
-    await $.ui.open({ id: PANE, title: 'Mod Studio' })
-    return { text: 'Mod Studio opened.' }
-  })
-
-  on('command.run', { command: 'mod-new' }, async ($, e) => {
-    const [name = '', ...rest] = e.args.trim().split(/\s+/)
-    const idea = rest.join(' ')
-    if (!name || !idea) return { text: 'Usage: /mod-new <name> <what it should do>' }
-    await startBuild($, name.toLowerCase(), idea)
-    return { text: `Building mod "${name}". Watch it above the prompt, in the status line, or with /mod-status.` }
+    void $.ui.open({ id: PANE, title: 'Mod Studio' })
+    const list = await read($, mods)
+    const all = await read($, reports)
+    if (list.length === 0) return { text: 'No mods yet. Try /mod-suggest or /mod-new <name> <idea>.' }
+    const lines = list.map(one => {
+      const { percent, step } = progressOf(one, all[one.name])
+      return `- **${one.name}** \`${bar(percent)}\` ${percent}% · ${step}${one.description ? `\n  ${one.description}` : ''}`
+    })
+    return { text: `**${list.length} mod${list.length === 1 ? '' : 's'}**\n\n${lines.join('\n')}\n\n/mod-improve <name> to upgrade one · /mod-suggest for ideas` }
   })
 
   on('command.run', { command: 'mod-suggest' }, async ($, e) => {
@@ -283,19 +291,8 @@ export const register: Register = (on, options) => {
     if (!list) return { text: 'Could not get ideas right now, try again.' }
     if (list.length === 0) return { text: 'No ideas came back, try a different topic.' }
     void $.ui.open({ id: PANE, title: 'Mod Studio' })
-    const lines = list.map(one => `- **${one.name}**: ${one.idea}\n  _Extras:_ ${one.extras}`)
-    return { text: `Mod ideas (press Build in Mod Studio, or run /mod-new <name> <idea>):\n\n${lines.join('\n')}` }
-  })
-
-  on('command.run', { command: 'mod-improve' }, async ($, e) => {
-    const name = e.args.trim()
-    await rescan($)
-    const mod = (await read($, mods)).find(one => one.name === name)
-    if (!mod) return { text: `No mod named "${name}". Run /mods to see them.` }
-    await update($, active, () => mod.name)
-    await update($, isBandHidden, () => false)
-    void $.prompt.submit({ text: improvePrompt(mod) })
-    return { text: `Asking Claude to improve "${mod.name}".` }
+    const lines = list.map(one => `- **${one.name}**: ${one.idea}\n  _Extras:_ ${one.extras}\n  \`/mod-new ${one.name} ${one.idea}\``)
+    return { text: `Mod ideas. Copy a /mod-new line to build one:\n\n${lines.join('\n')}` }
   })
 
   on('command.run', { command: 'mod-status' }, async ($, e) => {
@@ -439,7 +436,7 @@ export const register: Register = (on, options) => {
                   <Button
                     key={`build-${idea.name}`}
                     label="Build"
-                    onPress={() => startBuild($, idea.name, `${idea.idea} Extras: ${idea.extras}`)}
+                    onPress={() => startBuild($, cleanName(idea.name), `${idea.idea} Extras: ${idea.extras}`)}
                   />
                 </Box>
                 <Text>  {idea.idea}</Text>

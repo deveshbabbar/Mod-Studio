@@ -29,7 +29,7 @@ describe('helpers', () => {
 test('report_progress records progress and the band shows it', async $ => {
   const ran = await $.tool.call({ tool: 'mcp__mod-studio__report_progress', mod: 'toh', percent: 60, step: 'hooks module' })
   expect(ran.deny).toBe(undefined)
-  expect(ran.result).toBe('Progress for toh recorded: 60% (hooks module).')
+  expect(ran.result).toBe('🔧 toh ███████░░░░░ 60% · hooks module')
   for (const surface of ['terminal', 'desktop'] as const) {
     const ui = await $.ui.mount({ plugin: 'mod-studio', surface, component: 'AbovePrompt', props: BAND })
     expect(await ui.find({ type: 'Text', text: /60%/ })).toBeDefined()
