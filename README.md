@@ -35,7 +35,7 @@ Example:
 In a Claude Code terminal session:
 
 ```
-/plugin install mod-studio --marketplace <your-github-username>/mod-studio
+/plugin install mod-studio --marketplace deveshbabbar/mod-studio
 ```
 
 Answer `y` to add the marketplace, then press Enter to install for your user.
